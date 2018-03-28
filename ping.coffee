@@ -30,56 +30,56 @@ module.exports = (env) ->
           @deviceCount++
           return device
       })
-
-      @framework.deviceManager.on('discover', (eventData) =>
-        interfaces = @listInterfaces()
-        # ping all devices in each net:
-        maxPings = 513
-        pingCount = 0
-        interfaces.forEach( (iface, ifNum) =>
-          @framework.deviceManager.discoverMessage(
-            'pimatic-ping', "Scanning #{iface.address}/24"
-          )
-          base = iface.address.match(/([0-9]+\.[0-9]+\.[0-9]+\.)[0-9]+/)[1]
-          i = 1
-          while i < 256
-            do (i) =>
-              if pingCount > maxPings then return
-              address = "#{base}#{i}"
-              sessionId = ((process.pid + (256*(ifNum+1)) + i) % 65535)
-              session = ping.createSession(
-                networkProtocol: ping.NetworkProtocol.IPv4
-                packetSize: 16
-                retries: 3
-                sessionId: sessionId
-                timeout: eventData.time
-                ttl: 128
-              )
-              session.pingHost(address, (error, target) =>
-                session.close()
-                unless error
-                  dns.reverse(address, (error, hostnames) =>
-                    displayName = (
-                      if hostnames? and hostnames.length > 0 then hostnames[0] else address
-                    )
-                    config = {
-                      class: 'PingPresence',
-                      name: displayName,
-                      host: displayName
-                    }
-                    @framework.deviceManager.discoveredDevice(
-                      'pimatic-ping', "Presence of #{displayName}", config
-                    )
-                  )
-              )
-            i++
-            pingCount++
-          if pingCount > maxPings
+      if @config.discover
+        @framework.deviceManager.on('discover', (eventData) =>
+          interfaces = @listInterfaces()
+          # ping all devices in each net:
+          maxPings = 513
+          pingCount = 0
+          interfaces.forEach( (iface, ifNum) =>
             @framework.deviceManager.discoverMessage(
-              'pimatic-ping', "Could not ping all networks, max ping cound reached."
+              'pimatic-ping', "Scanning #{iface.address}/24"
             )
+            base = iface.address.match(/([0-9]+\.[0-9]+\.[0-9]+\.)[0-9]+/)[1]
+            i = 1
+            while i < 256
+              do (i) =>
+                if pingCount > maxPings then return
+                address = "#{base}#{i}"
+                sessionId = ((process.pid + (256*(ifNum+1)) + i) % 65535)
+                session = ping.createSession(
+                  networkProtocol: ping.NetworkProtocol.IPv4
+                  packetSize: 16
+                  retries: 3
+                  sessionId: sessionId
+                  timeout: eventData.time
+                  ttl: 128
+                )
+                session.pingHost(address, (error, target) =>
+                  session.close()
+                  unless error
+                    dns.reverse(address, (error, hostnames) =>
+                      displayName = (
+                        if hostnames? and hostnames.length > 0 then hostnames[0] else address
+                      )
+                      config = {
+                        class: 'PingPresence',
+                        name: displayName,
+                        host: displayName
+                      }
+                      @framework.deviceManager.discoveredDevice(
+                        'pimatic-ping', "Presence of #{displayName}", config
+                      )
+                    )
+                )
+              i++
+              pingCount++
+            if pingCount > maxPings
+              @framework.deviceManager.discoverMessage(
+                'pimatic-ping', "Could not ping all networks, max ping cound reached."
+              )
+          )
         )
-      )
 
     # get all ip4 non local networks with /24 submask
     listInterfaces : () ->
